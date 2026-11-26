@@ -1,7 +1,7 @@
 {
   "name": "hongguo-desktop",
   "productName": "HongguoDuanju",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "description": "红果短剧桌面客户端(官方网页版封装壳)",
   "main": "main.js",
@@ -24,7 +24,7 @@
     "electron-builder": "^26.18.0"
   },
   "build": {
-    "appId": "com.github.huyang-md.hongguoduanju",
+    "appId": "com.github.hwu121380-afk.hongguoduanju",
     "productName": "HongguoDuanju",
     "compression": "maximum",
     "electronLanguages": ["zh-CN", "en-US"],

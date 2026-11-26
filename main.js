@@ -7,10 +7,10 @@ const fs = require('fs');
 const HOME_URL = 'https://hongguoduanju.com/';
 const HOST_RE = /(^|\.)hongguoduanju\.com$/i;
 const DETAIL_RE = /hongguoduanju\.com\/detail/i;
-const REPO = 'huyang-md/hongguo-desktop-wrapper';
+const REPO = 'hwu121380-afk/hongguo-desktop-wrapper';
 const RELEASES_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
-const APP_USER_MODEL_ID = 'com.github.huyang-md.hongguoduanju';
+const APP_USER_MODEL_ID = 'com.github.hwu121380-afk.hongguoduanju';
 
 let win = null;
 let tray = null;
@@ -22,6 +22,7 @@ let latestTag = null; // 静默更新检查发现的最新版本(只在托盘提
 const statePath = () => path.join(app.getPath('userData'), 'window-state.json');
 const historyPath = () => path.join(app.getPath('userData'), 'watch-history.json');
 const updateCheckPath = () => path.join(app.getPath('userData'), 'update-check.json');
+const speedPath = () => path.join(app.getPath('userData'), 'speed.json');
 
 function loadJSON(p, fallback) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; }
@@ -195,6 +196,83 @@ function toggleMini() {
   setTrayMenu(); // 托盘文案随状态同步
 }
 
+// ---------- 倍速:记住上次倍速,换集后自动恢复 ----------
+// 菜单快选档位;Ctrl+↑/↓ 以 0.25 步进,在 0.5–3 之间调速
+const SPEED_MENU = [
+  { rate: 0.75, label: '0.75x' },
+  { rate: 1.0, label: '1.0x' },
+  { rate: 1.25, label: '1.25x' },
+  { rate: 1.5, label: '1.5x' },
+  { rate: 2.0, label: '2.0x' }
+];
+let currentSpeed = 1.0;
+
+function loadSpeed() {
+  const v = loadJSON(speedPath(), null);
+  return (typeof v === 'number' && v >= 0.5 && v <= 3) ? v : 1.0;
+}
+
+function fmtSpeed(r) {
+  return (Math.round(r * 100) / 100).toString() + 'x';
+}
+
+// 托盘 tooltip 随倍速与更新提示同步
+function refreshTrayTooltip() {
+  if (!tray) return;
+  let tip = '红果短剧';
+  if (currentSpeed !== 1) tip += ` —— 倍速 ${fmtSpeed(currentSpeed)}`;
+  if (latestTag) tip += `,发现新版本 v${latestTag},托盘菜单可前往下载`;
+  tray.setToolTip(tip);
+}
+
+// 与 pausePlayback 同样手段:主进程直接改页面 video 元素的播放速率
+function applySpeed() {
+  if (!win || win.isDestroyed()) return;
+  win.webContents.executeJavaScript(`(() => {
+    let n = 0;
+    document.querySelectorAll('video').forEach((v) => {
+      v.playbackRate = ${currentSpeed};
+      v.defaultPlaybackRate = ${currentSpeed};
+      n++;
+    });
+    return n;
+  })()`, true).catch(() => {});
+}
+
+function setSpeed(rate) {
+  const clamped = Math.min(3, Math.max(0.5, Math.round(rate * 4) / 4));
+  currentSpeed = clamped;
+  saveJSON(speedPath(), clamped);
+  applySpeed();
+  refreshTrayTooltip();
+  setTrayMenu();
+  Menu.setApplicationMenu(buildMenu());
+}
+
+function stepSpeed(delta) { setSpeed(currentSpeed + delta); }
+
+// ---------- 清除缓存与登录状态 ----------
+async function clearCacheAndLogin() {
+  const { response } = await msgBox({
+    type: 'warning',
+    title: '清除缓存与登录状态',
+    message: '将清除浏览缓存、Cookie 与本地存储,登录状态也会退出,需要重新登录。确定继续吗?',
+    buttons: ['清除', '取消'],
+    defaultId: 1,
+    cancelId: 1
+  });
+  if (response !== 0) return;
+  try {
+    const ses = session.defaultSession;
+    await ses.clearCache();
+    await ses.clearStorageData({ storages: ['cookies', 'localstorage', 'cachestorage', 'indexdb', 'serviceworkers'] });
+    await msgBox({ type: 'info', title: '已清除', message: '缓存与登录状态已清除,页面将重新加载,请重新登录。' });
+    if (win && !win.isDestroyed()) win.reload();
+  } catch {
+    msgBox({ type: 'warning', title: '清除失败', message: '清除缓存时出错,请重试。' });
+  }
+}
+
 // ---------- 开机自启(仅打包版有意义) ----------
 function isAutoLaunch() {
   return app.isPackaged && app.getLoginItemSettings().openAtLogin;
@@ -277,7 +355,7 @@ async function checkUpdate(interactive) {
         // 自动检查保持静默:只更新托盘菜单和 tooltip,不抢焦点
         latestTag = tag;
         if (tray) setTrayMenu();
-        if (tray) tray.setToolTip(`红果短剧 —— 发现新版本 v${tag},托盘菜单可前往下载`);
+        refreshTrayTooltip();
       }
     } else if (interactive) {
       latestTag = null;
@@ -377,9 +455,13 @@ function createWindow() {
   win.webContents.on('will-navigate', guardNavigation);
   win.webContents.on('will-redirect', guardNavigation);
 
+  // 换集会换 video 元素,页面加载完成与标题更新时都重新应用已保存的倍速
+  win.webContents.on('did-finish-load', () => { applySpeed(); });
+
   // 记录当前页面 URL 与标题,供观看历史使用(SPA pushState 会触发标题更新)
   win.webContents.on('page-title-updated', (_e, title) => {
     recordVisit(win.webContents.getURL() || '', title);
+    applySpeed();
   });
 }
 
@@ -406,6 +488,7 @@ function setTrayMenu() {
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
     { label: '清空观看记录', click: () => { saveHistoryImpl([]); setTrayMenu(); } },
+    { label: '清除缓存与登录状态', click: () => { showWin(); clearCacheAndLogin(); } },
     { type: 'separator' },
     { label: '退出', click: () => { quitting = true; app.quit(); } }
   ]));
@@ -430,7 +513,7 @@ function createTray() {
     tray = null;
     return false;
   }
-  tray.setToolTip('红果短剧');
+  refreshTrayTooltip();
   setTrayMenu();
   tray.on('click', showWin);
   return true;
@@ -458,11 +541,21 @@ function buildMenu() {
       submenu: [
         { label: '小窗置顶', click: toggleMini },
         { label: '老板键(隐藏/唤出,全局生效)', click: bossKey },
+        {
+          label: '倍速',
+          submenu: SPEED_MENU.map(({ rate, label }) => ({
+            label, type: 'checkbox', checked: currentSpeed === rate,
+            click: () => setSpeed(rate)
+          }))
+        },
+        { label: '倍速 +0.25 (Ctrl+↑)', accelerator: 'CommandOrControl+Up', click: () => stepSpeed(0.25) },
+        { label: '倍速 -0.25 (Ctrl+↓)', accelerator: 'CommandOrControl+Down', click: () => stepSpeed(-0.25) },
         { label: '检查更新', click: () => checkUpdate(true) },
         { label: '反馈问题', click: () => shell.openExternal(feedbackUrl()) },
         { type: 'separator' },
         { label: '开机自启', type: 'checkbox', checked: isAutoLaunch(), click: toggleAutoLaunch },
-        { label: '清空观看记录', click: () => { saveHistoryImpl([]); setTrayMenu(); } }
+        { label: '清空观看记录', click: () => { saveHistoryImpl([]); setTrayMenu(); } },
+        { label: '清除缓存与登录状态', click: () => clearCacheAndLogin() }
       ]
     },
     {
@@ -505,6 +598,7 @@ if (!gotLock) {
 
     // 去掉 UA 里的 Electron 标识,避免站点按爬虫/特殊客户端处理
     app.userAgentFallback = app.userAgentFallback.replace(/\s*Electron\/[\d.]+/, '');
+    currentSpeed = loadSpeed();
     Menu.setApplicationMenu(buildMenu());
     globalShortcut.register('Control+Shift+B', bossKey) ||
       console.warn('[hongguo] Ctrl+Shift+B 快捷键注册失败,可能被其他程序占用');

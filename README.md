@@ -1,8 +1,10 @@
 # 红果短剧电脑版 · Hongguo Desktop Wrapper
 
-![Latest Release](https://img.shields.io/github/v/release/huyang-md/hongguo-desktop-wrapper)
-![Downloads](https://img.shields.io/github/downloads/huyang-md/hongguo-desktop-wrapper/total)
-![License](https://img.shields.io/github/license/huyang-md/hongguo-desktop-wrapper)
+![Latest Release](https://img.shields.io/github/v/release/hwu121380-afk/hongguo-desktop-wrapper)
+![Downloads](https://img.shields.io/github/downloads/hwu121380-afk/hongguo-desktop-wrapper/total)
+![License](https://img.shields.io/github/license/hwu121380-afk/hongguo-desktop-wrapper)
+
+> **二次开发版**：本仓库是 [huyang-md/hongguo-desktop-wrapper](https://github.com/huyang-md/hongguo-desktop-wrapper)（MIT 协议）的 fork 修改版，由 hwu121380-afk 维护；新增倍速播放、记忆倍速、一键清除缓存，许可证与上游署名见 [LICENSE](LICENSE)。
 
 **红果短剧 电脑版 | Windows 客户端 | 免安装 | 无需安卓模拟器 | 源码 100% 开源**
 
@@ -18,7 +20,7 @@
 
 ## 📥 下载安装
 
-1. 打开 [Releases · 最新版](https://github.com/huyang-md/hongguo-desktop-wrapper/releases/latest)
+1. 打开 [Releases · 最新版](https://github.com/hwu121380-afk/hongguo-desktop-wrapper/releases/latest)
 2. 下载 `HongguoDuanju-Setup-x.x.x.exe`
 3. 双击安装,完成
 
@@ -31,6 +33,8 @@
 - 原生窗口,关闭即缩到托盘,托盘菜单真退出
 - **老板键 `Ctrl+Shift+B`**(全局生效):一键隐藏窗口并自动暂停播放,再按唤回
 - **小窗置顶**(430×760 竖屏比例):边干活边刷剧
+- **倍速播放**:`Ctrl+↑` / `Ctrl+↓` 以 0.25 步进调速(0.5x–3x),「功能」菜单有 0.75x/1.0x/1.25x/1.5x/2.0x 快选;换集后自动恢复上次倍速,托盘提示会显示当前倍速
+- **一键清除缓存与登录状态**:托盘/「功能」菜单可清缓存、Cookie 与本地存储(会退出登录,需重新登录)
 - **观看历史**:托盘「最近看过」一键直达,仅存本地、可清空
 - **检查更新**:菜单/托盘一键检查,发现新版直达下载页;启动时每天自动查一次
 - **反馈问题**:托盘/菜单一键直达 Issue 页,自动附上应用版本信息
@@ -68,6 +72,7 @@ A: 暂无计划。欢迎fork 修改,理论上 Electron 层改动很小。
 | 按键 | 功能 |
 |---|---|
 | `Ctrl+Shift+B` | 老板键(全局):隐藏+自动暂停 / 再按唤回 |
+| `Ctrl+↑` `Ctrl+↓` | 倍速 +0.25 / -0.25(0.5x–3x,换集后记忆恢复) |
 | `F11` | 沉浸全屏 |
 | `Ctrl+R` | 刷新 |
 | `Ctrl+=` `Ctrl+-` `Ctrl+0` | 页面缩放 |
